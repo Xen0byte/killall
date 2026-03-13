@@ -1,4 +1,5 @@
 bin/
+Screenshots/
 obj/
 publish/
 .claude/
@@ -7,3 +8,8 @@ publish/
 *.user
 *.suo
 *.cache
+*.xml
+!TrimmerRoots.xml
+*.log
+*.db
+*.bak

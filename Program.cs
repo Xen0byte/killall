@@ -710,7 +710,8 @@ internal static class KillCommand
         var targets = new List<ProcessTarget>();
         ProcessTreeService.BuildProcessTree();
 
-        foreach (var proc in processes)
+        int selfPid = Environment.ProcessId;
+        foreach (var proc in processes.Where(p => p.Id != selfPid))
         {
             try
             {
@@ -2113,129 +2114,51 @@ internal static class HelpCommand
     {
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine(@"
-  ╔═══════════════════════════════════════════════════════════════╗
-  ║  killall — Windows 11 Intelligent Process Termination Tool   ║
-  ╚═══════════════════════════════════════════════════════════════╝");
+  killall — Windows Process Termination Tool");
         Console.ResetColor();
 
         Console.WriteLine(@"
   USAGE
-    killall <pattern> [options]       Kill processes matching a name/pattern
-    killall <subcommand> [options]    Run a specialized kill command
+    killall <pattern> [options]
+    killall <subcommand> [options]
 
   PATTERN MATCHING
-    killall notepad                   Exact name match (case-insensitive)
-    killall note                      Partial/substring match (fallback)
-    killall note*                     Glob wildcard match
-    killall /note.*pad/               Regex match (enclosed in slashes)
+    name        Exact match
+    part        Substring match
+    note*       Glob wildcard
+    /regex/     Regex match
 
   OPTIONS
-    -t, --tree                        Kill entire process tree (children first)
-    -f, --force                       Skip confirmation prompt
-    -n, --dry-run                     Show what would be killed without acting
-    -h, --help                        Show this help
-
-  ADVANCED FILTERS (combinable with pattern, --tree, --force, --dry-run)
-    --cmdline <pattern>               Kill by command-line substring or /regex/
-    --module <dllname>                Kill by loaded DLL/module name
-    --port <N> or <start-end>         Kill by listening/connected port (TCP/UDP)
-    --window <title>                  Kill by window title substring or /regex/
-    --parent <pid or name>            Kill children of a given parent process
+    -t, --tree            Kill process tree
+    -f, --force           Skip confirmation
+    -n, --dry-run         Show what would be killed
+    --cmdline <pat>       Match command-line substring or /regex/
+    --module <dll>        Match loaded module/DLL
+    --port <N|A-B>        Match TCP/UDP port or range
+    --window <title>      Match window title substring or /regex/
+    --parent <pid|name>   Match children of a parent process
+    --top <N>             Limit ramhog/cpuhog to top N offenders
+    --sample <N>          CPU sampling interval (seconds) for cpuhog
+    -h, --help            Show help
 
   SUBCOMMANDS
-    killall restart <name>            Kill and restart a process
-    killall gpu [--threshold N]       Kill GPU-consuming processes (default >1%)
-    killall networkapps               Kill processes with active network connections
-    killall hung                      Kill all 'Not Responding' applications
-    killall ramhog <MB>               Kill processes using more than N MB RAM
-    killall cpuhog <percent>          Kill processes using more than N% CPU
-                   [--sample N]         (sampling interval in seconds, default 1)
-    killall llm                       Kill all local LLM/AI inference processes
-    killall game                      Kill all game processes and launchers
-
-  SUBCOMMAND OPTIONS
-    --threshold N                     GPU/CPU/RAM threshold value
-    --top N                           Kill only top N offenders (ramhog/cpuhog)
-    --sample N                        CPU sampling interval in seconds (cpuhog)
-    --force, -f                       Skip confirmation on any subcommand
-    --dry-run, -n                     Preview mode on any subcommand");
-
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine(@"
-  SAFETY — THREE-TIER PROTECTION MODEL");
-        Console.ResetColor();
-
-        Console.WriteLine(@"
-    Tier 1 — IMMORTAL (Hard Block)
-      Critical Windows system processes that are NEVER terminated.
-      Includes: System, csrss, lsass, winlogon, svchost, dwm, smss,
-                wininit, services, fontdrvhost, MsMpEng, and others.
-      These processes are essential for OS stability. Killing them
-      would cause an immediate BSOD or system crash.");
-
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.Write("    Tier 2 — AUTO-RESTART");
-        Console.ResetColor();
-        Console.WriteLine(@" (Watchdog)
-      Essential Windows 11 UI processes that will be automatically
-      restarted after termination. Includes: explorer.exe,
-      ShellExperienceHost, StartMenuExperienceHost, SearchHost,
-      RuntimeBroker, Taskmgr, ApplicationFrameHost, Widgets.
-      Explorer.exe has special retry logic (up to 3 attempts).");
-
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.Write("    Tier 3 — ALLOWED");
-        Console.ResetColor();
-        Console.WriteLine(@" (Normal Kill)
-      All other processes. Terminated normally with confirmation.");
-
-        Console.WriteLine(@"
-  GPU DETECTION
-    Primary: Windows Performance Counters (GPU Engine) via WMI
-    Fallback: Loaded module detection (d3d11, d3d12, vulkan, CUDA)
-    Supports NVIDIA, AMD, and Intel GPUs on Windows 10 1809+
-
-  NETWORK DETECTION
-    Uses iphlpapi.dll P/Invoke (GetExtendedTcpTable/GetExtendedUdpTable)
-    Enumerates all TCP (ESTABLISHED) and UDP connections per process
-    Supports both IPv4 and IPv6
-
-  HUNG APP DETECTION
-    Uses IsHungAppWindow (user32.dll) and SendMessageTimeout
-    with SMTO_ABORTIFHUNG flag for reliable detection
-    Also checks Process.Responding for .NET-accessible processes
-
-  TREE KILL (--tree)
-    Builds a complete parent-child process map via WMI Win32_Process.
-    Recursively collects all descendants. Kills children first, then
-    parent (bottom-up). Tier 1 processes in the tree are skipped.
-    Tier 2 processes are killed and restarted.
+    hung                  Kill hung/frozen apps
+    networkapps           Kill processes with network connections
+    ramhog <MB>           Kill processes using >N MB RAM
+    cpuhog <percent>      Kill processes using >N% CPU
+    gpu [--threshold N]   Kill GPU-using processes
+    llm                   Kill local AI/LLM processes
+    game                  Kill game processes and launchers
+    restart <name>        Kill and restart a process
 
   EXAMPLES
-    killall notepad                   Kill all Notepad instances
-    killall chrome --tree             Kill Chrome and all child processes
-    killall /fire.*fox/ -f            Regex kill Firefox, skip confirmation
-    killall hung                      Kill all hung/frozen applications
-    killall ramhog 2048               Kill processes using >2 GB RAM
-    killall cpuhog 90 --top 3         Kill top 3 CPU hogs above 90%
-    killall gpu --threshold 5         Kill processes using >5% GPU
-    killall llm -f                    Force-kill all LLM processes
-    killall game --dry-run            Preview game processes to kill
-
-  ADVANCED FILTER EXAMPLES
-    killall --cmdline ""--model""       Kill processes with --model in args
-    killall --cmdline /http\.server/  Kill Python http.server instances
-    killall --module d3d12.dll        Kill all processes using Direct3D 12
-    killall --module torch_cuda.dll   Kill CUDA-accelerated processes
-    killall --port 8080               Kill process owning port 8080
-    killall --port 5000-6000          Kill processes on ports 5000-6000
-    killall --window ""Crash Reporter"" Kill windows titled Crash Reporter
-    killall --window /Incognito/      Kill windows matching regex
-    killall --parent explorer         Kill all children of explorer.exe
-    killall --parent 1234 --tree      Kill children of PID 1234 + subtrees
-
-  NOTE: Some operations require Administrator privileges.
-  Run from an elevated terminal for full functionality.
+    killall notepad
+    killall chrome --tree
+    killall --port 8080
+    killall --cmdline /server/
+    killall hung
+    killall ramhog 2048
+    killall cpuhog 90 --top 3
 ");
     }
 }
@@ -2262,6 +2185,14 @@ internal static class Program
         if (first is "-h" or "--help" or "-?" or "help")
         {
             HelpCommand.ShowHelp();
+            return 0;
+        }
+
+        // Version flag
+        if (first is "--version" or "-V")
+        {
+            var version = typeof(Program).Assembly.GetName().Version;
+            Console.WriteLine($"killall {version?.ToString(3) ?? "1.0.1"}");
             return 0;
         }
 

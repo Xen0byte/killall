@@ -1,0 +1,4 @@
+<linker>
+  <assembly fullname="System.Management" preserve="all" />
+  <assembly fullname="System.CodeDom" preserve="all" />
+</linker>
